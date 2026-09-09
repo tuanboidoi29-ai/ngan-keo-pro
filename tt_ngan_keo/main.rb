@@ -6,10 +6,10 @@ require_relative 'board_tool'
 
 module TT
   module NganKeo
-    VERSION = '1.2.2'
+    VERSION = '1.2.3'
     CREATOR = 'TRẦN TUẤN'
     RELEASE_URL = 'https://github.com/tuanboidoi29-ai/ngan-keo-pro/releases'
-    LATEST_RBZ_URL = 'https://github.com/tuanboidoi29-ai/ngan-keo-pro/releases/download/v1.2.2/TT-ngan-keo-1.2.2.rbz'
+    LATEST_RBZ_URL = 'https://github.com/tuanboidoi29-ai/ngan-keo-pro/releases/download/v1.2.3/TT-ngan-keo-1.2.3.rbz'
     UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/tuanboidoi29-ai/ngan-keo-pro/main/update.json'
     PLUGIN_DIR = File.dirname(__FILE__)
     ICON_PATH = File.join(PLUGIN_DIR, 'icons', 'ngan_keo.svg')
@@ -363,7 +363,7 @@ module TT
 
         if @points.empty?
           face = @detected_face || (input.valid? ? input.face : nil)
-          @normal = face ? face.normal : view.camera.direction.reverse
+          @normal = face ? normal_toward_camera(face, view) : view.camera.direction.reverse
           @points << (@hover_position || input.position)
           update_status
           view.invalidate
@@ -510,6 +510,12 @@ module TT
         candidates.min || configured_depth
       end
 
+      def normal_toward_camera(face, view)
+        normal = face.normal.clone
+        normal.reverse! if normal.dot(view.camera.direction) > 0
+        normal
+      end
+
       def rectangular_face(face)
         return nil unless face && face.vertices.length >= 3
 
@@ -546,6 +552,8 @@ module TT
 
       def add_prism(entities, origin, axis_a, axis_b, extrusion)
         face = entities.add_face(origin, origin + axis_a, origin + axis_a + axis_b, origin + axis_b)
+        raise 'Không tạo được mặt ván' unless face
+
         face.reverse! if face.normal.dot(extrusion) < 0
         face.pushpull(extrusion.length * (face.normal.dot(extrusion).negative? ? -1 : 1))
       end
