@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Quản lý và sắp xếp các ngăn kéo trong nhà.">
+  <title>Ngăn Kéo | Không gian gọn gàng</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">NK</span>
+        <div>
+          <strong>Ngăn Kéo</strong>
+          <span>Không gian gọn gàng</span>
+        </div>
+      </div>
+
+      <nav class="side-nav" aria-label="Điều hướng chính">
+        <button class="nav-item active" data-view="all"><span class="nav-icon">▦</span>Tất cả ngăn kéo</button>
+        <button class="nav-item" data-view="recent"><span class="nav-icon">◷</span>Cập nhật gần đây</button>
+        <button class="nav-item" data-view="attention"><span class="nav-icon">!</span>Cần sắp xếp</button>
+      </nav>
+
+      <div class="sidebar-section">
+        <div class="section-heading">
+          <span>Khu vực</span>
+          <button class="icon-button small" id="add-area" aria-label="Thêm khu vực" title="Thêm khu vực">+</button>
+        </div>
+        <div id="area-list" class="area-list"></div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="storage-label"><span>Dung lượng sử dụng</span><strong id="storage-percent">0%</strong></div>
+        <div class="progress-track"><span id="storage-progress"></span></div>
+        <p id="storage-summary">0 / 12 ngăn kéo</p>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div class="mobile-brand"><span class="brand-mark">NK</span><strong>Ngăn Kéo</strong></div>
+        <label class="search-box" for="search-input">
+          <span aria-hidden="true">⌕</span>
+          <input id="search-input" type="search" placeholder="Tìm ngăn kéo hoặc vật dụng..." autocomplete="off">
+          <kbd>/</kbd>
+        </label>
+        <div class="top-actions">
+          <button class="icon-button" id="theme-toggle" aria-label="Đổi giao diện" title="Đổi giao diện">☼</button>
+          <button class="avatar" aria-label="Tài khoản">MA</button>
+        </div>
+      </header>
+
+      <div class="content-wrap">
+        <section class="welcome-row">
+          <div>
+            <p class="eyebrow">THỨ TƯ, 09 THÁNG 09</p>
+            <h1>Chào buổi sáng, Mai <span>✦</span></h1>
+            <p class="subtitle">Mọi thứ trong tầm tay, theo cách của bạn.</p>
+          </div>
+          <button class="primary-button" id="add-drawer"><span>+</span> Thêm ngăn kéo</button>
+        </section>
+
+        <section class="stats-grid" aria-label="Tổng quan">
+          <article class="stat-card"><div class="stat-icon peach">▦</div><div><span>Tổng ngăn kéo</span><strong id="drawer-count">0</strong></div><small>đang quản lý</small></article>
+          <article class="stat-card"><div class="stat-icon mint">✓</div><div><span>Đã sắp xếp</span><strong id="organized-count">0</strong></div><small class="positive">↑ 12% tuần này</small></article>
+          <article class="stat-card"><div class="stat-icon yellow">⌁</div><div><span>Vật dụng</span><strong id="item-count">0</strong></div><small>được lưu trữ</small></article>
+        </section>
+
+        <section class="drawers-section">
+          <div class="section-title-row">
+            <div><h2 id="view-title">Tất cả ngăn kéo</h2><p id="view-description">Một góc nhìn rõ ràng về mọi thứ bạn đang cất giữ.</p></div>
+            <div class="view-controls"><button class="filter-button" id="filter-button">Lọc <span>⌄</span></button><button class="icon-button view-button active" aria-label="Dạng lưới">▦</button><button class="icon-button view-button" aria-label="Dạng danh sách">☷</button></div>
+          </div>
+          <div id="drawer-grid" class="drawer-grid"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modal-backdrop" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button class="modal-close" id="modal-close" aria-label="Đóng">×</button>
+      <p class="eyebrow">BẮT ĐẦU SẮP XẾP</p>
+      <h2 id="modal-title">Thêm ngăn kéo mới</h2>
+      <p class="modal-copy">Tạo một chỗ nhỏ cho những thứ quan trọng của bạn.</p>
+      <form id="drawer-form">
+        <label>Tên ngăn kéo<input name="name" required placeholder="Ví dụ: Dụng cụ sửa chữa"></label>
+        <div class="form-row"><label>Khu vực<select name="area" id="area-select"></select></label><label>Màu nhận diện<select name="color"><option value="coral">San hô</option><option value="blue">Xanh biển</option><option value="green">Xanh lá</option><option value="yellow">Vàng nắng</option></select></label></div>
+        <label>Mô tả ngắn<textarea name="description" rows="2" placeholder="Bạn cất gì ở đây?"></textarea></label>
+        <button class="primary-button full-width" type="submit">Tạo ngăn kéo <span>→</span></button>
+      </form>
+    </section>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
