@@ -2,11 +2,12 @@
 
 require 'fileutils'
 
-version = '1.1.3'
+version = '1.2.0'
 output = "TT-ngan-keo-#{version}.rbz"
 files = [
 	'tt_ngan_keo.rb',
 	'tt_ngan_keo/main.rb',
+	'tt_ngan_keo/board_tool.rb',
 	'tt_ngan_keo/icons/ngan_keo.svg',
 	'tt_ngan_keo/icons/create_drawer.svg',
 	'tt_ngan_keo/icons/update.svg',

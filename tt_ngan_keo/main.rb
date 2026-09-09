@@ -2,10 +2,11 @@
 
 require 'sketchup.rb'
 require 'json'
+require_relative 'board_tool'
 
 module TT
   module NganKeo
-    VERSION = '1.1.3'
+    VERSION = '1.2.0'
     CREATOR = 'TRẦN TUẤN'
     RELEASE_URL = 'https://github.com/tuanboidoi29-ai/ngan-keo-pro/releases'
     UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/tuanboidoi29-ai/ngan-keo-pro/main/update.json'
@@ -57,6 +58,27 @@ module TT
       @create_command.status_bar_text = 'Chọn góc 1 của vùng tạo ngăn kéo'
       set_command_icon(@create_command, CREATE_ICON_PATH)
       @create_command
+    end
+
+    def board_command
+      return @board_command if @board_command
+
+      @board_command = UI::Command.new('Vẽ ván có khoảng hở') { create_smart_board }
+      @board_command.tooltip = 'Vẽ tấm ván theo 2 điểm và khoảng hở'
+      @board_command.status_bar_text = 'Nhập thông số ván rồi chọn 2 điểm'
+      set_command_icon(@board_command, CREATE_ICON_PATH)
+      @board_command
+    end
+
+    def create_smart_board
+      prompts = ['Độ dày ván (mm):', 'Hở trái (mm):', 'Hở phải (mm):', 'Hở trên (mm):', 'Hở dưới (mm):']
+      defaults = [18.0, 0.0, 0.0, 0.0, 0.0]
+      values = UI.inputbox(prompts, defaults, 'Cấu hình ván thông minh')
+      return unless values
+
+      Sketchup.active_model.select_tool(
+        VectorBoardTool.new(*values.map(&:to_f))
+      )
     end
 
     def activate_drawer_tool
@@ -523,12 +545,14 @@ module TT
       menu = UI.menu('Extensions')
       menu.add_item(command)
       menu.add_item(create_command)
+      menu.add_item(board_command)
       menu.add_separator
       menu.add_item(update_command)
 
       toolbar = UI::Toolbar.new('TT - ngan keo')
       toolbar.add_item(command)
       toolbar.add_item(create_command)
+      toolbar.add_item(board_command)
       toolbar.add_item(update_command)
       toolbar.show
       schedule_update_check
