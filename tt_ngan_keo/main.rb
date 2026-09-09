@@ -3,13 +3,14 @@
 require 'sketchup.rb'
 require 'json'
 require_relative 'board_tool'
+require_relative 'drawer_v14'
 
 module TT
   module NganKeo
-    VERSION = '1.2.3'
+    VERSION = '1.3.0'
     CREATOR = 'TRẦN TUẤN'
     RELEASE_URL = 'https://github.com/tuanboidoi29-ai/ngan-keo-pro/releases'
-    LATEST_RBZ_URL = 'https://github.com/tuanboidoi29-ai/ngan-keo-pro/releases/download/v1.2.3/TT-ngan-keo-1.2.3.rbz'
+    LATEST_RBZ_URL = 'https://github.com/tuanboidoi29-ai/ngan-keo-pro/releases/download/v1.3.0/TT-ngan-keo-1.3.0.rbz'
     UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/tuanboidoi29-ai/ngan-keo-pro/main/update.json'
     PLUGIN_DIR = File.dirname(__FILE__)
     ICON_PATH = File.join(PLUGIN_DIR, 'icons', 'ngan_keo.svg')
@@ -83,8 +84,7 @@ module TT
     end
 
     def activate_drawer_tool
-      Sketchup.active_model.select_tool(DrawerTool.new)
-      Sketchup.set_status_text('Tạo ngăn kéo: click 2 góc đối diện theo đường chéo.', SB_PROMPT)
+      TT_NGAN_KEO_NHANH_V14.start
     rescue StandardError => error
       notify_tool_error("Không thể mở công cụ tạo ngăn kéo: #{error.message}")
     end
