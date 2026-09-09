@@ -6,9 +6,10 @@ require_relative 'board_tool'
 
 module TT
   module NganKeo
-    VERSION = '1.2.1'
+    VERSION = '1.2.2'
     CREATOR = 'TRẦN TUẤN'
     RELEASE_URL = 'https://github.com/tuanboidoi29-ai/ngan-keo-pro/releases'
+    LATEST_RBZ_URL = 'https://github.com/tuanboidoi29-ai/ngan-keo-pro/releases/download/v1.2.2/TT-ngan-keo-1.2.2.rbz'
     UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/tuanboidoi29-ai/ngan-keo-pro/main/update.json'
     PLUGIN_DIR = File.dirname(__FILE__)
     ICON_PATH = File.join(PLUGIN_DIR, 'icons', 'ngan_keo.svg')
@@ -83,6 +84,9 @@ module TT
 
     def activate_drawer_tool
       Sketchup.active_model.select_tool(DrawerTool.new)
+      Sketchup.set_status_text('Tạo ngăn kéo: click 2 góc đối diện theo đường chéo.', SB_PROMPT)
+    rescue StandardError => error
+      notify_tool_error("Không thể mở công cụ tạo ngăn kéo: #{error.message}")
     end
 
     def drawer_settings
@@ -153,7 +157,7 @@ module TT
 
     def check_for_updates(silent: false)
       unless defined?(Sketchup::Http::Request)
-        open_release_page unless silent
+        UI.openURL(LATEST_RBZ_URL)
         return
       end
 
@@ -170,7 +174,7 @@ module TT
           message = "Có bản cập nhật v#{latest} cho TT - ngan keo.\n\nTải và cài đặt ngay?"
           download_update(manifest['rbz_url'].to_s) if UI.messagebox(message) == IDYES
         elsif !silent
-          UI.messagebox("TT - ngan keo đang ở phiên bản mới nhất v#{VERSION}.")
+          UI.messagebox("Đang dùng v#{VERSION}. Tải lại bản cài đặt mới nhất?") == IDYES && download_update(LATEST_RBZ_URL)
         end
       rescue JSON::ParserError
         open_release_page('Manifest cập nhật không hợp lệ.') unless silent
@@ -219,6 +223,11 @@ module TT
     rescue StandardError => error
       UI.messagebox("Không thể cài bản cập nhật: #{error.message}\n\nBạn có thể cài thủ công từ trang phát hành.")
       UI.openURL(RELEASE_URL)
+    end
+
+    def notify_tool_error(message)
+      UI.messagebox(message)
+      Sketchup.set_status_text(message, SB_PROMPT)
     end
 
     def reload_runtime
@@ -512,7 +521,8 @@ module TT
         return [nil, nil] unless hit
 
         path = hit[1] || []
-        face = path.reverse.find { |entity| entity.is_a?(Sketchup::Face) }
+        faces = path.select { |entity| entity.is_a?(Sketchup::Face) }
+        face = faces.max_by { |candidate| candidate.normal.dot(view.camera.direction).abs }
         [face, hit[0]]
       end
 
