@@ -5,7 +5,7 @@ require 'json'
 
 module TT
   module NganKeo
-    VERSION = '1.1.1'
+    VERSION = '1.1.2'
     CREATOR = 'TRẦN TUẤN'
     RELEASE_URL = 'https://github.com/tuanboidoi29-ai/ngan-keo-pro/releases'
     UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/tuanboidoi29-ai/ngan-keo-pro/main/update.json'
@@ -145,8 +145,8 @@ module TT
         manifest = JSON.parse(response.body)
         latest = manifest['version'].to_s
         if newer_version?(latest, VERSION)
-          message = "Có bản cập nhật v#{latest} cho TT - ngan keo.\n\nMở link tải RBZ ngay?"
-          UI.messagebox(message) == IDYES && UI.openURL(manifest['rbz_url'].to_s)
+          message = "Có bản cập nhật v#{latest} cho TT - ngan keo.\n\nTải và cài đặt ngay?"
+          download_update(manifest['rbz_url'].to_s) if UI.messagebox(message) == IDYES
         elsif !silent
           UI.messagebox("TT - ngan keo đang ở phiên bản mới nhất v#{VERSION}.")
         end
@@ -159,6 +159,41 @@ module TT
 
     def newer_version?(remote, current)
       remote.split('.').map(&:to_i) > current.split('.').map(&:to_i)
+    end
+
+    def download_update(url)
+      return open_release_page('Link cập nhật không hợp lệ.') if url.empty?
+
+      request = Sketchup::Http::Request.new(url)
+      request.start do |_http_request, response|
+        unless response.status_code.to_i == 200
+          open_release_page('Không thể tải file cập nhật.')
+          next
+        end
+
+        archive = File.join(Sketchup.temp_dir, 'TT-ngan-keo-update.rbz')
+        File.binwrite(archive, response.body)
+        install_update(archive)
+      end
+    rescue StandardError => error
+      open_release_page("Không thể tải bản cập nhật: #{error.message}")
+    end
+
+    def install_update(archive)
+      unless Sketchup.respond_to?(:install_from_archive)
+        UI.openURL(RELEASE_URL)
+        return
+      end
+
+      installed = Sketchup.install_from_archive(archive)
+      if installed
+        UI.messagebox('Đã cài bản cập nhật. Vui lòng khởi động lại SketchUp.')
+      else
+        UI.messagebox('SketchUp đã hủy cài đặt hoặc không thể cài file RBZ.')
+      end
+    rescue StandardError => error
+      UI.messagebox("Không thể cài bản cập nhật: #{error.message}\n\nBạn có thể cài thủ công từ trang phát hành.")
+      UI.openURL(RELEASE_URL)
     end
 
     def open_release_page(reason = nil)
@@ -286,7 +321,7 @@ module TT
           view.invalidate
           return
         end
-        @points << input.position
+        @points << (@hover_position || input.position)
         if @points.length == 2
           @points = rectangle_from_diagonal(@points[0], @points[1], @detected_face, view)
           create_drawer(detect_depth(@points.first, @normal))
@@ -365,19 +400,27 @@ module TT
 
         u = width_vector.normalize
         v = height_vector.normalize
-        group = Sketchup.active_model.active_entities.add_group
-        entities = group.entities
-        add_prism(entities, origin, u * thickness, v * height, depth_vector)
-        add_prism(entities, origin + u * (width - thickness), u * thickness, v * height, depth_vector)
-        add_prism(entities, origin, u * (width - thickness), v * thickness, depth_vector)
-        add_prism(entities, origin + v * (height - thickness), u * (width - thickness), v * thickness, depth_vector)
+        model = Sketchup.active_model
+        model.start_operation('Tạo ngăn kéo', true)
+        begin
+          group = model.active_entities.add_group
+          entities = group.entities
+          add_prism(entities, origin, u * thickness, v * height, depth_vector)
+          add_prism(entities, origin + u * (width - thickness), u * thickness, v * height, depth_vector)
+          add_prism(entities, origin, u * (width - thickness), v * thickness, depth_vector)
+          add_prism(entities, origin + v * (height - thickness), u * (width - thickness), v * thickness, depth_vector)
 
-        inner_origin = origin + u * thickness + v * thickness
-        add_prism(entities, inner_origin, u * (width - thickness * 2), depth_vector, v * bottom_thickness)
-        add_prism(entities, origin, u * width, v * height, depth_vector.reverse * thickness)
-        group.name = 'TT - ngan keo'
-        Sketchup.active_model.selection.clear
-        Sketchup.active_model.selection.add(group)
+          inner_origin = origin + u * thickness + v * thickness
+          add_prism(entities, inner_origin, u * (width - thickness * 2), depth_vector, v * bottom_thickness)
+          add_prism(entities, origin, u * width, v * height, depth_vector.reverse * thickness)
+          group.name = 'TT - ngan keo'
+          model.selection.clear
+          model.selection.add(group)
+          model.commit_operation
+        rescue StandardError => error
+          model.abort_operation
+          UI.messagebox("Không thể tạo ngăn kéo: #{error.message}")
+        end
       end
 
       def rectangle_from_diagonal(first, opposite, face, view)
