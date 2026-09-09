@@ -5,7 +5,7 @@ require 'json'
 
 module TT
   module NganKeo
-    VERSION = '1.1.2'
+    VERSION = '1.1.3'
     CREATOR = 'TRẦN TUẤN'
     RELEASE_URL = 'https://github.com/tuanboidoi29-ai/ngan-keo-pro/releases'
     UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/tuanboidoi29-ai/ngan-keo-pro/main/update.json'
@@ -187,13 +187,30 @@ module TT
 
       installed = Sketchup.install_from_archive(archive)
       if installed
-        UI.messagebox('Đã cài bản cập nhật. Vui lòng khởi động lại SketchUp.')
+        UI.start_timer(0.5, false) do
+          reload_runtime
+          UI.messagebox('Đã cập nhật và nạp phiên bản mới. Không cần khởi động lại SketchUp.')
+        end
       else
         UI.messagebox('SketchUp đã hủy cài đặt hoặc không thể cài file RBZ.')
       end
     rescue StandardError => error
       UI.messagebox("Không thể cài bản cập nhật: #{error.message}\n\nBạn có thể cài thủ công từ trang phát hành.")
       UI.openURL(RELEASE_URL)
+    end
+
+    def reload_runtime
+      @dialog.close if @dialog && @dialog.visible?
+      @settings_dialog.close if @settings_dialog && @settings_dialog.visible?
+      Sketchup.active_model.select_tool(nil)
+
+      %i[VERSION CREATOR RELEASE_URL UPDATE_MANIFEST_URL PLUGIN_DIR ICON_PATH CREATE_ICON_PATH UPDATE_ICON_PATH].each do |name|
+        remove_const(name) if const_defined?(name, false)
+      end
+      remove_const(:DrawerTool) if const_defined?(:DrawerTool, false)
+      load(__FILE__)
+    rescue StandardError => error
+      UI.messagebox("Đã cài bản mới nhưng không thể nạp nóng: #{error.message}\nVui lòng khởi động lại SketchUp.")
     end
 
     def open_release_page(reason = nil)
