@@ -5,7 +5,7 @@ require 'json'
 
 module TT
   module NganKeo
-    VERSION = '1.0.0'
+    VERSION = '1.1.0'
     CREATOR = 'TRẦN TUẤN'
     RELEASE_URL = 'https://github.com/tuanboidoi29-ai/ngan-keo-pro/releases'
     UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/tuanboidoi29-ai/ngan-keo-pro/main/update.json'
@@ -122,40 +122,7 @@ module TT
     end
 
     def check_for_updates
-      unless defined?(Sketchup::Http::Request)
-        open_release_page
-        return
-      end
-
-      request = Sketchup::Http::Request.new(UPDATE_MANIFEST_URL)
-      request.start do |_http_request, response|
-        if response.status_code.to_i != 200
-          open_release_page('Không thể kiểm tra máy chủ cập nhật.')
-          next
-        end
-
-        manifest = JSON.parse(response.body)
-        latest = manifest['version'].to_s
-        if newer_version?(latest, VERSION)
-          message = "Có bản mới v#{latest} (hiện tại v#{VERSION}).\n\nMở link tải RBZ để cập nhật?"
-          UI.messagebox(message) == IDYES && UI.openURL(manifest['rbz_url'].to_s)
-        else
-          UI.messagebox("TT - ngan keo đang ở phiên bản mới nhất v#{VERSION}.")
-        end
-      rescue JSON::ParserError
-        open_release_page('Manifest cập nhật không hợp lệ.')
-      end
-    rescue StandardError => error
-      open_release_page("Không thể kiểm tra cập nhật: #{error.message}")
-    end
-
-    def newer_version?(remote, current)
-      remote.split('.').map(&:to_i) > current.split('.').map(&:to_i)
-    end
-
-    def open_release_page(reason = nil)
-      message = [reason, 'Mở trang phát hành để kiểm tra thủ công?'].compact.join("\n\n")
-      UI.messagebox(message) == IDYES && UI.openURL(RELEASE_URL)
+      UI.messagebox("Mở trang tải bản cập nhật TT - ngan keo v#{VERSION}?") == IDYES && UI.openURL(RELEASE_URL)
     end
 
     def bind_dialog_callbacks
@@ -241,6 +208,7 @@ module TT
       def onCancel(_reason, view)
         @points.clear
         @preview = nil
+        @detected_face = nil
         view.invalidate
         update_status
       end
@@ -270,16 +238,16 @@ module TT
 
         if @points.empty?
           @normal = input.face ? input.face.normal : view.camera.direction.reverse
-          if (opening = opening_from_face(input.face))
-            @points = opening
-            update_status
-            view.invalidate
-            return
-          end
+          @detected_face = rectangular_face(input.face)
+          @points << input.position
+          update_status
+          view.invalidate
+          return
         end
         @points << input.position
-        if @points.length == 4
-          create_drawer
+        if @points.length == 2
+          @points = rectangle_from_diagonal(@points[0], @points[1], @detected_face, view)
+          create_drawer(detect_depth(@points.first, @normal))
           onCancel(nil, view)
         else
           update_status
@@ -298,8 +266,9 @@ module TT
 
         view.line_width = 2
         view.drawing_color = Sketchup::Color.new(244, 125, 100)
-        preview_points = @points + [@preview]
-        view.draw(GL_LINE_STRIP, preview_points)
+        if @points.length == 1
+          view.draw(GL_LINE_STRIP, [@points.first, @preview])
+        end
       end
 
       private
@@ -313,21 +282,17 @@ module TT
         end
 
         case @points.length
-        when 0 then 'Góc 1: bắt đầu vùng ngăn kéo'
-        when 1 then "Góc 2: chiều ngang #{distance(@points[0], input.position)}"
-        when 2 then "Góc 3: chiều cao #{distance(@points[0], input.position)}"
-        else "Kéo sâu: #{depth_for(input.position)}"
+        when 0 then 'Click góc thứ nhất của ngăn kéo'
+        else "Click góc đối diện theo đường chéo: #{distance(@points[0], input.position)}"
         end
       end
 
       def update_status
         messages = [
-          'Chọn góc 1 của vùng tạo ngăn kéo',
-          'Chọn góc 2 để xác định chiều ngang',
-          'Chọn góc 3 để xác định chiều cao',
-          'Chọn điểm thứ 4 để xác định chiều sâu'
+          'Click góc thứ nhất của ngăn kéo',
+          'Click góc đối diện theo đường chéo để tự tạo ngăn kéo'
         ]
-        Sketchup.set_status_text(messages[@points.length], SB_PROMPT)
+        Sketchup.set_status_text(messages[[ @points.length, 1 ].min], SB_PROMPT)
       end
 
       def distance(first, second)
@@ -338,23 +303,16 @@ module TT
         "#{length.to_mm.round(1)} mm"
       end
 
-      def depth_for(point)
-        value = (@normal ? (point - @points.first).dot(@normal).abs : 0)
-        (value > 1.mm ? value : DEFAULT_DEPTH).to_l.round(1).to_s + ' mm'
-      end
-
-      def create_drawer
-        origin, width_end, height_end, depth_point = @points
+      def create_drawer(depth_value = nil)
+        origin, width_end, height_end = @points
         width_vector = width_end - origin
         height_vector = height_end - origin
         configured = NganKeo.drawer_settings
         thickness = configured[:thickness].mm
         bottom_thickness = configured[:bottom_thickness].mm
-        depth_value = (depth_point - origin).dot(@normal).abs
-        depth_value = configured[:depth].mm if depth_value < 1.mm
+        depth_value ||= configured[:depth].mm
         depth_vector = @normal.clone
         depth_vector.length = depth_value
-        depth_vector.reverse! if (depth_point - origin).dot(@normal).negative?
 
         width = width_vector.length
         height = height_vector.length
@@ -378,6 +336,45 @@ module TT
         group.name = 'TT - ngan keo'
         Sketchup.active_model.selection.clear
         Sketchup.active_model.selection.add(group)
+      end
+
+      def rectangle_from_diagonal(first, opposite, face, view)
+        diagonal = opposite - first
+        axes = face_axes(face, view)
+        width = diagonal.dot(axes[0])
+        height = diagonal.dot(axes[1])
+        axes[0] = axes[0].reverse if width.negative?
+        axes[1] = axes[1].reverse if height.negative?
+        [first, first + axes[0] * width.abs, first + axes[1] * height.abs]
+      end
+
+      def face_axes(face, view)
+        if face && face.vertices.length >= 3
+          positions = face.vertices.map(&:position)
+          first = positions[0]
+          first_axis = (positions[1] - first).normalize
+          second_axis = (positions[2] - positions[1]).normalize
+          return [first_axis, second_axis] if first_axis.length > 0 && second_axis.length > 0
+        end
+
+        right = view.camera.direction.cross(view.camera.up).normalize
+        [right, view.camera.up.normalize]
+      end
+
+      def detect_depth(origin, normal)
+        configured_depth = NganKeo.drawer_settings[:depth].mm
+        return configured_depth unless normal
+
+        candidates = []
+        [normal, normal.reverse].each do |direction|
+          start = origin + direction * 2.mm
+          hit = Sketchup.active_model.raytest([start, direction])
+          next unless hit
+
+          distance = start.distance(hit[0])
+          candidates << distance if distance > 10.mm
+        end
+        candidates.min || configured_depth
       end
 
       def rectangular_face(face)

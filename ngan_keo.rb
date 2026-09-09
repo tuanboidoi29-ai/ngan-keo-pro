@@ -112,7 +112,7 @@ def print_drawers(drawers)
   end
 end
 
-options = { items: [] }
+options = { items: nil }
 parser = OptionParser.new do |opts|
   opts.banner = 'Cách dùng: ruby ngan_keo.rb [lệnh] [tùy chọn]'
   opts.on('--name TEN', 'Tên ngăn kéo') { |value| options[:name] = value }
@@ -134,6 +134,17 @@ when 'add'
   puts "Đã tạo ngăn kéo ##{drawer['id']}: #{drawer['name']}"
 when 'list'
   print_drawers(manager.list(area: options[:area], query: options[:query]))
+when 'update'
+  raise OptionParser::MissingArgument, '--id là bắt buộc' unless options[:id]
+  raise OptionParser::MissingArgument, 'Cần ít nhất một trong --name, --area hoặc --items' unless options[:name] || options[:area] || options[:items]
+
+  drawer = manager.update(
+    options[:id],
+    name: options[:name],
+    area: options[:area],
+    items: options[:items]
+  )
+  puts "Đã cập nhật ngăn kéo ##{drawer['id']}: #{drawer['name']}"
 when 'organize'
   raise OptionParser::MissingArgument, '--id là bắt buộc' unless options[:id]
 
@@ -146,5 +157,5 @@ when 'remove'
   puts "Đã xóa ngăn kéo '#{drawer['name']}'."
 else
   puts parser
-  puts '\nLệnh: add, list, organize, remove'
+  puts '\nLệnh: add, list, update, organize, remove'
 end
