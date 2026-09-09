@@ -5,7 +5,7 @@ require 'json'
 
 module TT
   module NganKeo
-    VERSION = '1.1.0'
+    VERSION = '1.1.1'
     CREATOR = 'TRẦN TUẤN'
     RELEASE_URL = 'https://github.com/tuanboidoi29-ai/ngan-keo-pro/releases'
     UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/tuanboidoi29-ai/ngan-keo-pro/main/update.json'
@@ -121,8 +121,49 @@ module TT
       @dialog.show
     end
 
-    def check_for_updates
-      UI.messagebox("Mở trang tải bản cập nhật TT - ngan keo v#{VERSION}?") == IDYES && UI.openURL(RELEASE_URL)
+    def schedule_update_check
+      last_check = Sketchup.read_default('TT - ngan keo', 'last_update_check', 0).to_i
+      return if last_check > Time.now.to_i - 86_400
+
+      Sketchup.write_default('TT - ngan keo', 'last_update_check', Time.now.to_i)
+      UI.start_timer(3.0, false) { check_for_updates(silent: true) }
+    end
+
+    def check_for_updates(silent: false)
+      unless defined?(Sketchup::Http::Request)
+        open_release_page unless silent
+        return
+      end
+
+      request = Sketchup::Http::Request.new(UPDATE_MANIFEST_URL)
+      request.start do |_http_request, response|
+        if response.status_code.to_i != 200
+          open_release_page('Không thể kiểm tra cập nhật.') unless silent
+          next
+        end
+
+        manifest = JSON.parse(response.body)
+        latest = manifest['version'].to_s
+        if newer_version?(latest, VERSION)
+          message = "Có bản cập nhật v#{latest} cho TT - ngan keo.\n\nMở link tải RBZ ngay?"
+          UI.messagebox(message) == IDYES && UI.openURL(manifest['rbz_url'].to_s)
+        elsif !silent
+          UI.messagebox("TT - ngan keo đang ở phiên bản mới nhất v#{VERSION}.")
+        end
+      rescue JSON::ParserError
+        open_release_page('Manifest cập nhật không hợp lệ.') unless silent
+      end
+    rescue StandardError => error
+      open_release_page("Không thể kiểm tra cập nhật: #{error.message}") unless silent
+    end
+
+    def newer_version?(remote, current)
+      remote.split('.').map(&:to_i) > current.split('.').map(&:to_i)
+    end
+
+    def open_release_page(reason = nil)
+      message = [reason, 'Mở trang phát hành để kiểm tra thủ công?'].compact.join("\n\n")
+      UI.messagebox(message) == IDYES && UI.openURL(RELEASE_URL)
     end
 
     def bind_dialog_callbacks
@@ -195,6 +236,8 @@ module TT
         @points = []
         @normal = nil
         @preview = nil
+        @hover_position = nil
+        @detected_face = nil
       end
 
       def activate
@@ -215,12 +258,11 @@ module TT
 
       def onMouseMove(_flags, x, y, view)
         input = view.inputpoint(x, y)
-        if input.valid?
-          @preview = input.position
-          @detected_face = rectangular_face(input.face)
-        else
-          @detected_face = nil
-        end
+        ray_face, ray_position = face_under_cursor(view, x, y)
+        face = input.valid? && input.face ? input.face : ray_face
+        @detected_face = rectangular_face(face)
+        @hover_position = input.valid? && input.face ? input.position : ray_position
+        @preview = @hover_position
         view.tooltip = tooltip_text(input)
         view.invalidate
       end
@@ -234,12 +276,12 @@ module TT
 
       def onLButtonDown(_flags, x, y, view)
         input = view.inputpoint(x, y)
-        return unless input.valid?
+        return unless input.valid? || @hover_position
 
         if @points.empty?
-          @normal = input.face ? input.face.normal : view.camera.direction.reverse
-          @detected_face = rectangular_face(input.face)
-          @points << input.position
+          face = @detected_face || (input.valid? ? input.face : nil)
+          @normal = face ? face.normal : view.camera.direction.reverse
+          @points << (@hover_position || input.position)
           update_status
           view.invalidate
           return
@@ -274,7 +316,7 @@ module TT
       private
 
       def tooltip_text(input)
-        return 'Chọn điểm trên mặt phẳng' unless input.valid?
+        return 'Di chuột vào mặt trong lòng tủ' unless input.valid? || @detected_face
 
         if @points.empty? && @detected_face
           width, height = face_dimensions(@detected_face)
@@ -378,9 +420,18 @@ module TT
       end
 
       def rectangular_face(face)
-        return nil unless face && face.vertices.length == 4 && face.edges.length == 4
+        return nil unless face && face.vertices.length >= 3
 
         face
+      end
+
+      def face_under_cursor(view, x, y)
+        hit = Sketchup.active_model.raytest(view.pickray(x, y))
+        return [nil, nil] unless hit
+
+        path = hit[1] || []
+        face = path.reverse.find { |entity| entity.is_a?(Sketchup::Face) }
+        [face, hit[0]]
       end
 
       def opening_from_face(face)
@@ -420,6 +471,7 @@ module TT
       toolbar.add_item(create_command)
       toolbar.add_item(update_command)
       toolbar.show
+      schedule_update_check
       file_loaded(__FILE__)
     end
   end
