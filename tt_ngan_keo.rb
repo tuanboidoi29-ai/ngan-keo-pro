@@ -6,7 +6,7 @@ require 'extensions.rb'
 module TT
   module NganKeo
     EXTENSION = SketchupExtension.new('TT - ngan keo', 'tt_ngan_keo/main')
-    EXTENSION.version = '1.2.0'
+    EXTENSION.version = '1.2.1'
     EXTENSION.creator = 'TRẦN TUẤN'
     EXTENSION.description = 'Quản lý ngăn kéo trong SketchUp.'
 

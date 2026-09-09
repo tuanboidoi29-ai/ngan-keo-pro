@@ -6,7 +6,7 @@ require_relative 'board_tool'
 
 module TT
   module NganKeo
-    VERSION = '1.2.0'
+    VERSION = '1.2.1'
     CREATOR = 'TRẦN TUẤN'
     RELEASE_URL = 'https://github.com/tuanboidoi29-ai/ngan-keo-pro/releases'
     UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/tuanboidoi29-ai/ngan-keo-pro/main/update.json'
@@ -53,9 +53,9 @@ module TT
     def create_command
       return @create_command if @create_command
 
-      @create_command = UI::Command.new('Tạo ngăn kéo theo chuột') { activate_drawer_tool }
-      @create_command.tooltip = 'Chọn 3 góc và kéo sâu để tạo ngăn kéo'
-      @create_command.status_bar_text = 'Chọn góc 1 của vùng tạo ngăn kéo'
+      @create_command = UI::Command.new('Tạo ngăn kéo') { activate_drawer_tool }
+      @create_command.tooltip = 'Chọn 2 góc đường chéo để tạo ngăn kéo'
+      @create_command.status_bar_text = 'Click 2 góc đối diện để tạo ngăn kéo'
       set_command_icon(@create_command, CREATE_ICON_PATH)
       @create_command
     end
