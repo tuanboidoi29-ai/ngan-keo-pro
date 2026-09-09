@@ -7,10 +7,10 @@ require_relative 'drawer_v14'
 
 module TT
   module NganKeo
-    VERSION = '1.3.0'
+    VERSION = '1.3.1'
     CREATOR = 'TRẦN TUẤN'
     RELEASE_URL = 'https://github.com/tuanboidoi29-ai/ngan-keo-pro/releases'
-    LATEST_RBZ_URL = 'https://github.com/tuanboidoi29-ai/ngan-keo-pro/releases/download/v1.3.0/TT-ngan-keo-1.3.0.rbz'
+    LATEST_RBZ_URL = 'https://github.com/tuanboidoi29-ai/ngan-keo-pro/releases/download/v1.3.1/TT-ngan-keo-1.3.1.rbz'
     UPDATE_MANIFEST_URL = 'https://raw.githubusercontent.com/tuanboidoi29-ai/ngan-keo-pro/main/update.json'
     PLUGIN_DIR = File.dirname(__FILE__)
     ICON_PATH = File.join(PLUGIN_DIR, 'icons', 'ngan_keo.svg')
@@ -156,74 +156,16 @@ module TT
     end
 
     def check_for_updates(silent: false)
-      unless defined?(Sketchup::Http::Request)
-        UI.openURL(LATEST_RBZ_URL)
-        return
-      end
+      return if silent
 
-      request = Sketchup::Http::Request.new(UPDATE_MANIFEST_URL)
-      request.start do |_http_request, response|
-        if response.status_code.to_i != 200
-          open_release_page('Không thể kiểm tra cập nhật.') unless silent
-          next
-        end
-
-        manifest = JSON.parse(response.body)
-        latest = manifest['version'].to_s
-        if newer_version?(latest, VERSION)
-          message = "Có bản cập nhật v#{latest} cho TT - ngan keo.\n\nTải và cài đặt ngay?"
-          download_update(manifest['rbz_url'].to_s) if UI.messagebox(message) == IDYES
-        elsif !silent
-          UI.messagebox("Đang dùng v#{VERSION}. Tải lại bản cài đặt mới nhất?") == IDYES && download_update(LATEST_RBZ_URL)
-        end
-      rescue JSON::ParserError
-        open_release_page('Manifest cập nhật không hợp lệ.') unless silent
-      end
-    rescue StandardError => error
-      open_release_page("Không thể kiểm tra cập nhật: #{error.message}") unless silent
+      answer = UI.messagebox(
+        "Bản cập nhật mới nhất của TT - ngan keo là v#{LATEST_VERSION}.\n\nMở link tải RBZ ngay?",
+        MB_YESNO
+      )
+      UI.openURL(LATEST_RBZ_URL) if answer == IDYES
     end
 
-    def newer_version?(remote, current)
-      remote.split('.').map(&:to_i) > current.split('.').map(&:to_i)
-    end
-
-    def download_update(url)
-      return open_release_page('Link cập nhật không hợp lệ.') if url.empty?
-
-      request = Sketchup::Http::Request.new(url)
-      request.start do |_http_request, response|
-        unless response.status_code.to_i == 200
-          open_release_page('Không thể tải file cập nhật.')
-          next
-        end
-
-        archive = File.join(Sketchup.temp_dir, 'TT-ngan-keo-update.rbz')
-        File.binwrite(archive, response.body)
-        install_update(archive)
-      end
-    rescue StandardError => error
-      open_release_page("Không thể tải bản cập nhật: #{error.message}")
-    end
-
-    def install_update(archive)
-      unless Sketchup.respond_to?(:install_from_archive)
-        UI.openURL(RELEASE_URL)
-        return
-      end
-
-      installed = Sketchup.install_from_archive(archive)
-      if installed
-        UI.start_timer(0.5, false) do
-          reload_runtime
-          UI.messagebox('Đã cập nhật và nạp phiên bản mới. Không cần khởi động lại SketchUp.')
-        end
-      else
-        UI.messagebox('SketchUp đã hủy cài đặt hoặc không thể cài file RBZ.')
-      end
-    rescue StandardError => error
-      UI.messagebox("Không thể cài bản cập nhật: #{error.message}\n\nBạn có thể cài thủ công từ trang phát hành.")
-      UI.openURL(RELEASE_URL)
-    end
+    LATEST_VERSION = '1.3.1'
 
     def notify_tool_error(message)
       UI.messagebox(message)

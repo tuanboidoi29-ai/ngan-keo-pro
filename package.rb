@@ -2,7 +2,7 @@
 
 require 'fileutils'
 
-version = '1.3.0'
+version = '1.3.1'
 output = "TT-ngan-keo-#{version}.rbz"
 files = [
 	'tt_ngan_keo.rb',
